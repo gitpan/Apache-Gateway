@@ -3,6 +3,6 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     NAME	=> 'Apache::Gateway',
-    VERSION	=> '1.00',
+    VERSION	=> '1.01',
     dist	=> { COMPRESS => 'gzip', SUFFIX => 'gz' },
 );

@@ -30,3 +30,8 @@ Automatic failover in this case would be quite difficult and is
 probably not worthwhile.  However, many people would like a faster
 more lightweight method for distributing requests amongst their own
 servers which, presumably, never fail. :-)
+
+Remember which servers have errored.  Move these servers to the end of
+the priority queue until after some user specified timeout.  This will
+allow known bad servers to be tried only after any other servers have
+been tried.
