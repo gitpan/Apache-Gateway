@@ -1,0 +1,41 @@
+1998-07-28  Charles C. Fu  <ccwf@bacchus.com>
+
+	* Gateway.pm: Modified to more closely follow perlstyle guidelines.
+
+1998-07-21  Charles C. Fu  <ccwf@bacchus.com>
+
+	* Gateway.pm:
+	Added a lot more documentation and used CPAN sites in the examples
+	instead of Debian sites.
+
+	* Gateway.pm:
+	Moved GatewayRoot out of main Apache conf files and into the
+	GatewayConfig files.
+
+	Added GatewayTimeout.
+
+	Adjusted If-Modified-Since time when talking to upstream servers with
+	incorrect timestamps.
+
+	Fixed errors in multiplexing.
+
+	* Gateway.pm: Pass through cache and pragma directives.
+
+	Removed some debugging statements.
+
+	* Gateway.pm: Updated documentation.
+
+	Implemented multiplexing.
+
+	Broke printHeaders into smaller pieces.
+
+1998-07-20  Charles C. Fu  <ccwf@bacchus.com>
+
+	* Gateway.pm: Removed directory munging capability.
+	Changed names from 'multiplexer' to 'gateway'.
+	Allow ForceType and similar directives to work.
+
+	* Gateway.pm: Imported sources
+
+	* Gateway.pm: New file.
+
