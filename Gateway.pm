@@ -196,21 +196,35 @@ use vars qw(@ISA);
 
 use Exporter ();
 @ISA = qw(Exporter);
-$Apache::Gateway::VERSION = sprintf("%d.%02d", q$Revision: 1.10 $ =~ /(\d+)\.(\d+)/g);
+$Apache::Gateway::VERSION = sprintf("%d.%02d", q$Revision: 1.12 $ =~ /(\d+)\.(\d+)/g);
 
 use Apache::Constants ':server'; # for SERVER_VERSION for Via comment
+use Apache::URI ();
 use HTTP::Date ();
 use HTTP::Request ();
 use HTTP::Status ();
 use IO::File ();
 use LWP::UserAgent ();
-use Regexp ();
 use Time::Zone ();
-use URI::URL ();
 
-# In a Apache::Registry script, we would need to make the following
+# In an Apache::Registry script, we would need to make the following
 # variables global.  However, making them global seems unnecesary in a
 # handler.
+my %default_port = (finger => 79,
+		    ftp => 21,
+		    gopher => 70,
+		    http => 80,
+		    https => 443,
+		    nntp => 119,
+		    prospero => 1525,
+		    rlogin => 513,
+		    snews => 563,
+		    telnet => 23,
+		    wais => 210,
+		    webster => 765,
+		    whois => 43,
+		   );
+
 my $gw;
 
 =item $gw = Apache::Gateway->new( [$ua] )
@@ -343,7 +357,7 @@ sub _init_config_file($) {
 	# E.g., <LocationMatch "\.gz$">
 	if(/^<LocationMatch \s*\"(.*)\">$/) {
 	    # Begin a new entry.
-	    my $cur_entry = { PATTERN => Regexp->new($1),
+	    my $cur_entry = { PATTERN => $1,
 			      SITE => [] };
 
 	    while(<$f>) {
@@ -430,23 +444,23 @@ sub clear_headers_for_redirect($) {
     }
 }
 
-=item canonicalized_server_URL($scheme, $hostname, $port, $default_port)
+=item canonicalized_server_URL($scheme, $hostname, $port)
 
 Return semicanonicalized server URL (without trailing slash).
 
 =cut
 
-sub canonicalized_server_URL($$$$) {
-    my($scheme, $host, $port, $default_port) = @_;
+sub canonicalized_server_URL($$$) {
+    my($scheme, $host, $port) = @_;
     my $server = lc($scheme . '://' . $host);
-    if(defined $port and defined $default_port
-       and $port != $default_port) {
+    if(defined $port and exists $default_port{$scheme}
+       and $port != $default_port{$scheme}) {
 	$server .= ':' . $port;
     }
     return $server;
 }
 
-=item server_name_from_URL($url)
+=item server_name_from_URL($r, $url)
 
 Return the (somewhat canonicalized) "server name" portion of the URL.
 The "server name" is defined as the leading scheme://authority portion
@@ -454,11 +468,10 @@ of the URL.
 
 =cut
 
-sub server_name_from_URL($) {
-    my $url = shift;
-    $url = URI::URL->new($url) unless ref $url;
-    return canonicalized_server_URL($url->scheme, $url->host,
-				    $url->port, $url->default_port);
+sub server_name_from_URL($$) {
+    my ($r, $url) = @_;
+    $url = Apache::URI->parse($r, $url) unless ref $url;
+    return canonicalized_server_URL($url->scheme, $url->hostname, $url->port);
 }
 
 =item server_name($r)
@@ -473,7 +486,7 @@ access is via HTTP.
 sub server_name($) {
     my $r = shift;
     return canonicalized_server_URL('http', $r->server->server_hostname,
-				    $r->server->port, 80);
+				    $r->server->port);
 }
 
 =item diff_TZ($origin_TZ, $mirror_TZ)
@@ -523,14 +536,18 @@ sub update_via_header_field($$) {
 
     # Oops.  No protocol.  Try to guess from request.
     unless(defined $hop) {
-	$hop = uc(URI::URL->new($response->request->url)->scheme) . '/unknown';
+	$hop = (uc(Apache::URI->parse($r, $response->request->url)->scheme)
+		. '/unknown');
     }
 
-    $hop =~ s{^HTTP/}{};	# Drop protocol-name if allowed.
+    # HTTP protocol-name can be dropped.  Remember if the server is
+    # being accessed via HTTP.
+    my $server_accessed_via_HTTP = ($hop =~ s{^HTTP/}{});
 
     # Set server name.
     $hop .= ' apache';		# For now, use a pseudonym.
-    $hop .= ':' . $r->server->port unless $r->server->port == 80;
+    $hop .= ':' . $r->server->port
+      unless $server_accessed_via_HTTP && $r->server->port == 80;
 
     # Set comment.  Comment text may not contain embedded parentheses.
     my $comment = SERVER_VERSION;
@@ -603,7 +620,8 @@ sub print_headers($$$) {
 
     # If necessary, try to compensate for servers with broken clocks.
     if(my $lm = $response->last_modified) {
-	my $upstream_server = server_name_from_URL($response->request->url);
+	my $upstream_server = server_name_from_URL($r,
+		$response->request->url->as_string);
 	if(exists $loc_conf->{BROKEN_CLOCK}{$upstream_server}) {
 	    my $TZ = $loc_conf->{BROKEN_CLOCK}{$upstream_server};
 	    $response->last_modified($lm + diff_TZ($$TZ[1], $$TZ[0]));
@@ -631,7 +649,7 @@ sub redirect($$) {
     my $site = $self->{SITE};
     my $path = $self->{GW_PATH};
 
-    my $url = URI::URL->new($site . $path);
+    my $url = Apache::URI->parse($r, $site . $path);
 
     # If this is an anon-FTP request, fill in the password with the
     # UA's from field.
@@ -639,14 +657,14 @@ sub redirect($$) {
 	$url->password($ua->from) # anon-FTP passwd
     }
 
-    my $request = HTTP::Request->new($r->method, $url);
+    my $request = HTTP::Request->new($r->method, $url->unparse);
 
     # If upstream server has a broken clock, calculate how much we
     # need to adjust condition GET time fields.  Note: this code won't
     # work correctly if we get redirected to another server with a
     # different clock.  Oh, well.
     my $loc_conf = $self->location_config;
-    my $upstream_server = server_name_from_URL($url);
+    my $upstream_server = server_name_from_URL($r, $url);
     my $broken_clock = 0;
     if(exists $loc_conf->{BROKEN_CLOCK}{$upstream_server}) {
 	my $TZ = $loc_conf->{BROKEN_CLOCK}{$upstream_server};
@@ -794,7 +812,7 @@ sub _init_path($) {
 
     # epath = $gw_root . $gw_path
     my $gw_root = $self->location_config->{ROOT};
-    my ($gw_path) = URI::URL->new($r->uri)->epath =~ /^\Q$gw_root\E(.*)/;
+    my ($gw_path) = $r->parsed_uri->path =~ /^\Q$gw_root\E(.*)/;
 
     unless(defined $gw_path) {	# error
 	$r->log_error($r->uri . ' does not begin with ' . $gw_root);
@@ -830,7 +848,7 @@ sub site_list($) {
     my $location_conf = $self->location_config;
     my $gw_path = $self->{GW_PATH};
     foreach my $entry (@{$location_conf->{LOCATION}}) {
-	if($entry->{PATTERN}->match($gw_path)) {
+	if($gw_path =~ /$entry->{PATTERN}/) {
 	    return @{$entry->{SITE}};
 	}
     }
@@ -896,7 +914,7 @@ any existing origin server information in this field.
 
 =head1 AUTHOR
 
-Charles C. Fu, ccwf@bacchus.com
+Charles C. Fu, perl@web-i18n.net
 
 =head1 SEE ALSO
 

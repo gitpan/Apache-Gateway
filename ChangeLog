@@ -1,4 +1,16 @@
-1998-08-07  Charles C. Fu  <ccwf@bacchus.com>
+2004-04-19  Charles C. Fu  <perl@web-i18n.net>
+
+	* Makefile.PL: release 1.10
+
+	* README:
+	Added a discussion of Apache::Gateway versus some newer approaches
+	now possible.
+
+	* Gateway.pm: Removed use of experimental Regexp module.
+
+	* References.txt: HTTP/1.1 and WebDAV IETF drafts are now RFCs.
+
+1998-08-07  Charles C. Fu  <perl@web-i18n.net>
 
 	* Makefile.PL: release 1.01
 
@@ -8,7 +20,7 @@
 
 	* ChangeLog: Fixed up ChangeLog.
 
-1998-08-05  Charles C. Fu  <ccwf@bacchus.com>
+1998-08-05  Charles C. Fu  <perl@web-i18n.net>
 
 	* Makefile.PL:
  	release 1.00
@@ -27,7 +39,7 @@
 	Propose eliminating URI::URL.  Consider forwarding the request via
 	Apache's proxy mechanism as an alternative to LWP::UserAgent.
 
-1998-07-29  Charles C. Fu  <ccwf@bacchus.com>
+1998-07-29  Charles C. Fu  <perl@web-i18n.net>
 
 	* Gateway.pm:
 	Moved package version into Makefile.PL.  $VERSION in this file now
@@ -47,11 +59,11 @@
 	file:) don't use ports (and default ports).  Check that ports exist
 	before using them.
 
-1998-07-28  Charles C. Fu  <ccwf@bacchus.com>
+1998-07-28  Charles C. Fu  <perl@web-i18n.net>
 
 	* Gateway.pm: Modified to more closely follow perlstyle guidelines.
 
-1998-07-21  Charles C. Fu  <ccwf@bacchus.com>
+1998-07-21  Charles C. Fu  <perl@web-i18n.net>
 
 	* Gateway.pm:
 	Added a lot more documentation and used CPAN sites in the examples
@@ -77,7 +89,7 @@
 
 	Broke printHeaders into smaller pieces.
 
-1998-07-20  Charles C. Fu  <ccwf@bacchus.com>
+1998-07-20  Charles C. Fu  <perl@web-i18n.net>
 
 	* Gateway.pm: Removed directory munging capability.
 	Changed names from 'multiplexer' to 'gateway'.
